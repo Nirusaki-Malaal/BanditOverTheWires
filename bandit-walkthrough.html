@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bandit Walkthrough — nirusaki</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@700;800&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #080b0f;
+    --bg2:       #0d1117;
+    --bg3:       #111820;
+    --border:    #1a2535;
+    --cyan:      #00ffe5;
+    --cyan-dim:  #00ffe530;
+    --cyan-glow: #00ffe580;
+    --red:       #ff3c5f;
+    --red-dim:   #ff3c5f20;
+    --amber:     #ffb347;
+    --green:     #39ff7a;
+    --muted:     #4a6070;
+    --text:      #c8d8e8;
+    --text-dim:  #6a8090;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    overflow-x: hidden;
+    cursor: default;
+  }
+
+  /* ── Scanlines + noise ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.07) 2px,
+      rgba(0,0,0,0.07) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0.4;
+  }
+
+  /* ── Grid bg ── */
+  .grid-bg {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,229,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,229,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Layout ── */
+  .layout {
+    display: flex;
+    min-height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    overflow-y: auto;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-track { background: transparent; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-header {
+    padding: 28px 24px 20px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0;
+    background: var(--bg2);
+    z-index: 2;
+  }
+
+  .brand {
+    font-family: 'Syne', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--cyan);
+    text-shadow: 0 0 20px var(--cyan-glow);
+    letter-spacing: -0.5px;
+  }
+
+  .brand span { color: var(--red); }
+
+  .subtitle {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .speedrun-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 4px 10px;
+    background: var(--red-dim);
+    border: 1px solid var(--red);
+    border-radius: 3px;
+    font-size: 10px;
+    color: var(--red);
+    letter-spacing: 1px;
+  }
+
+  .speedrun-badge::before {
+    content: '⚡';
+    font-size: 10px;
+  }
+
+  .search-wrap {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .search-wrap input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-wrap input::placeholder { color: var(--muted); }
+  .search-wrap input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px var(--cyan-dim); }
+
+  .nav-section {
+    padding: 12px 24px 6px;
+    font-size: 9px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .nav-list { list-style: none; padding: 0 12px 20px; }
+
+  .nav-item a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 12px;
+    border-radius: 4px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12px;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+
+  .nav-item a:hover {
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    border-color: var(--cyan-dim);
+  }
+
+  .nav-item a.active {
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    border-color: rgba(0,255,229,0.2);
+  }
+
+  .nav-num {
+    font-size: 10px;
+    color: var(--muted);
+    width: 22px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .nav-item a.active .nav-num { color: var(--cyan); }
+
+  .nav-tag {
+    margin-left: auto;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  .tag-git  { background: rgba(57,255,122,0.15); color: var(--green); }
+  .tag-ssl  { background: rgba(255,179,71,0.15); color: var(--amber); }
+  .tag-cron { background: rgba(255,60,95,0.15); color: var(--red); }
+  .tag-vim  { background: rgba(0,255,229,0.15); color: var(--cyan); }
+
+  /* ── Hamburger ── */
+  .hamburger {
+    display: none;
+    position: fixed;
+    top: 16px; left: 16px;
+    z-index: 200;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px;
+    cursor: pointer;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .hamburger span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--cyan);
+    border-radius: 1px;
+    transition: all 0.3s;
+  }
+
+  .hamburger.open span:nth-child(1) { transform: rotate(45deg) translate(4px, 4px); }
+  .hamburger.open span:nth-child(2) { opacity: 0; }
+  .hamburger.open span:nth-child(3) { transform: rotate(-45deg) translate(4px, -4px); }
+
+  .overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 99;
+  }
+
+  .overlay.show { display: block; }
+
+  /* ── Main ── */
+  .main {
+    margin-left: 280px;
+    flex: 1;
+    padding: 0;
+    min-width: 0;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    padding: 80px 60px 60px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -100px; right: -100px;
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(0,255,229,0.04) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--cyan);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero-eyebrow::before {
+    content: '';
+    display: block;
+    width: 30px; height: 1px;
+    background: var(--cyan);
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(28px, 8vw, 64px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    color: #fff;
+    margin-bottom: 8px;
+    word-wrap: break-word;
+  }
+
+  .hero h1 .glitch {
+    color: var(--cyan);
+    text-shadow: 0 0 30px var(--cyan-glow);
+    position: relative;
+    display: inline-block;
+  }
+
+  .hero h1 .glitch::before,
+  .hero h1 .glitch::after {
+    content: attr(data-text);
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+
+  .hero h1 .glitch::before {
+    color: var(--red);
+    animation: glitch1 3s infinite;
+    clip-path: polygon(0 0, 100% 0, 100% 35%, 0 35%);
+  }
+
+  .hero h1 .glitch::after {
+    color: var(--cyan);
+    animation: glitch2 3s infinite;
+    clip-path: polygon(0 65%, 100% 65%, 100% 100%, 0 100%);
+  }
+
+  @keyframes glitch1 {
+    0%,90%,100% { transform: translate(0); opacity: 0; }
+    92% { transform: translate(-3px, 1px); opacity: 0.8; }
+    94% { transform: translate(3px, -1px); opacity: 0.8; }
+    96% { transform: translate(0); opacity: 0; }
+  }
+
+  @keyframes glitch2 {
+    0%,92%,100% { transform: translate(0); opacity: 0; }
+    94% { transform: translate(3px, 1px); opacity: 0.8; }
+    96% { transform: translate(-3px, -1px); opacity: 0.8; }
+    98% { transform: translate(0); opacity: 0; }
+  }
+
+  .hero-desc {
+    color: var(--text-dim);
+    font-size: 14px;
+    max-width: 580px;
+    margin-top: 20px;
+    line-height: 1.8;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 32px;
+    margin-top: 40px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-val {
+    font-family: 'Syne', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--cyan);
+    text-shadow: 0 0 20px var(--cyan-dim);
+    line-height: 1;
+  }
+
+  .stat-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ── Content area ── */
+  .content {
+    padding: 40px 60px 80px;
+  }
+
+  /* ── Level card ── */
+  .level-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+    scroll-margin-top: 20px;
+  }
+
+  .level-card:hover { border-color: rgba(0,255,229,0.2); }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .level-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--bg);
+    background: var(--cyan);
+    width: 48px; height: 48px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    letter-spacing: -1px;
+    box-shadow: 0 0 20px var(--cyan-dim);
+  }
+
+  .card-title-wrap { flex: 1; min-width: 0; }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.3px;
+  }
+
+  .card-concept {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 3px;
+  }
+
+  .card-badges {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-size: 9px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border: 1px solid;
+  }
+
+  .badge-net  { background: rgba(0,255,229,0.08); border-color: rgba(0,255,229,0.3); color: var(--cyan); }
+  .badge-file { background: rgba(255,179,71,0.08); border-color: rgba(255,179,71,0.3); color: var(--amber); }
+  .badge-git  { background: rgba(57,255,122,0.08); border-color: rgba(57,255,122,0.3); color: var(--green); }
+  .badge-crypto { background: rgba(255,60,95,0.08); border-color: rgba(255,60,95,0.3); color: var(--red); }
+  .badge-shell { background: rgba(0,255,229,0.08); border-color: rgba(0,255,229,0.3); color: var(--cyan); }
+  .badge-cron  { background: rgba(255,60,95,0.08); border-color: rgba(255,60,95,0.3); color: var(--red); }
+
+  .chevron {
+    color: var(--muted);
+    font-size: 12px;
+    transition: transform 0.3s;
+    flex-shrink: 0;
+  }
+
+  .level-card.open .chevron { transform: rotate(180deg); }
+
+  .card-body {
+    display: none;
+    padding: 24px;
+  }
+
+  .level-card.open .card-body { display: block; }
+
+  /* ── Concept box ── */
+  .concept-box {
+    background: var(--bg3);
+    border-left: 3px solid var(--cyan);
+    border-radius: 0 4px 4px 0;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  .concept-box strong { color: var(--cyan); font-weight: 500; }
+
+  /* ── Code block ── */
+  .code-wrap {
+    background: #060a0e;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    font-size: 13px;
+  }
+
+  .code-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-dots { display: flex; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-r { background: #ff5f56; }
+  .dot-y { background: #ffbd2e; }
+  .dot-g { background: #27c93f; }
+
+  .code-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .copy-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .copy-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .copy-btn.copied { border-color: var(--green); color: var(--green); }
+
+  pre {
+    padding: 16px 18px;
+    overflow-x: auto;
+    line-height: 1.8;
+  }
+
+  pre::-webkit-scrollbar { height: 4px; }
+  pre::-webkit-scrollbar-track { background: transparent; }
+  pre::-webkit-scrollbar-thumb { background: var(--border); }
+
+  code { font-family: 'JetBrains Mono', monospace; }
+
+  .c-comment { color: #3a5060; }
+  .c-cmd     { color: var(--cyan); }
+  .c-flag    { color: var(--amber); }
+  .c-str     { color: var(--green); }
+  .c-op      { color: var(--red); }
+  .c-path    { color: #a78bfa; }
+
+  /* ── Password reveal ── */
+  .pass-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: rgba(255,60,95,0.05);
+    border: 1px solid rgba(255,60,95,0.2);
+    border-radius: 6px;
+    margin-top: 4px;
+  }
+
+  .pass-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--red);
+    flex-shrink: 0;
+  }
+
+  .pass-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--red);
+    flex: 1;
+    word-break: break-all;
+    filter: blur(6px);
+    transition: filter 0.3s;
+    user-select: none;
+  }
+
+  .pass-val.revealed {
+    filter: none;
+    user-select: text;
+  }
+
+  .reveal-btn {
+    background: none;
+    border: 1px solid rgba(255,60,95,0.4);
+    border-radius: 3px;
+    color: var(--red);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+
+  .reveal-btn:hover { background: var(--red-dim); }
+
+  /* ── Footer ── */
+  .footer {
+    padding: 32px 60px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .footer a { color: var(--cyan); text-decoration: none; }
+  .footer a:hover { text-shadow: 0 0 10px var(--cyan); }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .sidebar {
+      transform: translateX(-100%);
+    }
+    .sidebar.open {
+      transform: translateX(0);
+      box-shadow: 4px 0 40px rgba(0,0,0,0.8);
+    }
+    .hamburger { display: flex; }
+    .main { margin-left: 0; }
+    .hero { padding: 70px 24px 40px; }
+    .content { padding: 24px 24px 60px; }
+    .footer { padding: 24px; }
+    .hero-stats { gap: 20px; }
+  }
+
+  @media (max-width: 500px) {
+    .card-header { flex-wrap: wrap; }
+    .card-badges { margin-top: 4px; width: 100%; }
+    .pass-row { flex-wrap: wrap; }
+    .pass-val { width: 100%; }
+  }
+
+  /* ── Animations ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero > * {
+    animation: fadeUp 0.6s ease forwards;
+    opacity: 0;
+  }
+  .hero > *:nth-child(1) { animation-delay: 0.1s; }
+  .hero > *:nth-child(2) { animation-delay: 0.2s; }
+  .hero > *:nth-child(3) { animation-delay: 0.3s; }
+  .hero > *:nth-child(4) { animation-delay: 0.4s; }
+
+  /* ── Cursor blink ── */
+  .blink {
+    display: inline-block;
+    width: 10px; height: 1.1em;
+    background: var(--cyan);
+    margin-left: 4px;
+    vertical-align: middle;
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    0%,100% { opacity: 1; }
+    50%      { opacity: 0; }
+  }
+
+  .terminal-line {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 30px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .terminal-line::before {
+    content: '>';
+    color: var(--cyan);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<button class="hamburger" id="hamburger" aria-label="Toggle menu">
+  <span></span><span></span><span></span>
+</button>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="layout">
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">BANDIT<span>://</span></div>
+      <div class="subtitle">OverTheWire · Walkthrough</div>
+      <div class="speedrun-badge">6 HRS SPEEDRUN</div>
+    </div>
+
+    <div class="search-wrap">
+      <input type="text" id="searchInput" placeholder="Search levels..." autocomplete="off">
+    </div>
+
+    <div class="nav-section">Levels</div>
+    <ul class="nav-list" id="navList">
+      <li class="nav-item"><a href="#level-0"><span class="nav-num">00</span> SSH Login</a></li>
+      <li class="nav-item"><a href="#level-1"><span class="nav-num">01</span> Dashed Filename</a></li>
+      <li class="nav-item"><a href="#level-2"><span class="nav-num">02</span> Spaces in Name</a></li>
+      <li class="nav-item"><a href="#level-3"><span class="nav-num">03</span> Hidden File</a></li>
+      <li class="nav-item"><a href="#level-4"><span class="nav-num">04</span> File Type</a></li>
+      <li class="nav-item"><a href="#level-5"><span class="nav-num">05</span> Find by Size</a></li>
+      <li class="nav-item"><a href="#level-6"><span class="nav-num">06</span> Find by Owner</a></li>
+      <li class="nav-item"><a href="#level-7"><span class="nav-num">07</span> Grep</a></li>
+      <li class="nav-item"><a href="#level-8"><span class="nav-num">08</span> Unique Lines</a></li>
+      <li class="nav-item"><a href="#level-9"><span class="nav-num">09</span> Strings</a></li>
+      <li class="nav-item"><a href="#level-10"><span class="nav-num">10</span> Base64</a></li>
+      <li class="nav-item"><a href="#level-11"><span class="nav-num">11</span> ROT13</a></li>
+      <li class="nav-item"><a href="#level-12"><span class="nav-num">12</span> Compression Hell</a></li>
+      <li class="nav-item"><a href="#level-13"><span class="nav-num">13</span> SSH Key</a></li>
+      <li class="nav-item"><a href="#level-14"><span class="nav-num">14</span> Netcat</a></li>
+      <li class="nav-item"><a href="#level-15"><span class="nav-num">15</span> OpenSSL <span class="nav-tag tag-ssl">SSL</span></a></li>
+      <li class="nav-item"><a href="#level-16"><span class="nav-num">16</span> Port Scan <span class="nav-tag tag-ssl">SSL</span></a></li>
+      <li class="nav-item"><a href="#level-17"><span class="nav-num">17</span> Diff</a></li>
+      <li class="nav-item"><a href="#level-18"><span class="nav-num">18</span> SSH Exec</a></li>
+      <li class="nav-item"><a href="#level-19"><span class="nav-num">19</span> Setuid</a></li>
+      <li class="nav-item"><a href="#level-20"><span class="nav-num">20</span> tmux + nc</a></li>
+      <li class="nav-item"><a href="#level-21"><span class="nav-num">21</span> Cron Job <span class="nav-tag tag-cron">CRON</span></a></li>
+      <li class="nav-item"><a href="#level-22"><span class="nav-num">22</span> Cron + MD5 <span class="nav-tag tag-cron">CRON</span></a></li>
+      <li class="nav-item"><a href="#level-23"><span class="nav-num">23</span> Cron Write <span class="nav-tag tag-cron">CRON</span></a></li>
+      <li class="nav-item"><a href="#level-24"><span class="nav-num">24</span> Brute Force</a></li>
+      <li class="nav-item"><a href="#level-25"><span class="nav-num">25</span> SSH Key (26)</a></li>
+      <li class="nav-item"><a href="#level-26"><span class="nav-num">26</span> Vim Escape <span class="nav-tag tag-vim">VIM</span></a></li>
+      <li class="nav-item"><a href="#level-27"><span class="nav-num">27</span> Git Clone <span class="nav-tag tag-git">GIT</span></a></li>
+      <li class="nav-item"><a href="#level-28"><span class="nav-num">28</span> Git Log <span class="nav-tag tag-git">GIT</span></a></li>
+      <li class="nav-item"><a href="#level-29"><span class="nav-num">29</span> Git Branch <span class="nav-tag tag-git">GIT</span></a></li>
+      <li class="nav-item"><a href="#level-30"><span class="nav-num">30</span> Git Tags <span class="nav-tag tag-git">GIT</span></a></li>
+      <li class="nav-item"><a href="#level-31"><span class="nav-num">31</span> Git Push <span class="nav-tag tag-git">GIT</span></a></li>
+      <li class="nav-item"><a href="#level-32"><span class="nav-num">32</span> Shell Escape</a></li>
+      <li class="nav-item"><a href="#level-33"><span class="nav-num">33</span> gg</a></li>
+    </ul>
+  </aside>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main">
+
+    <section class="hero">
+      <div class="hero-eyebrow">OverTheWire · Bandit</div>
+      <h1><span class="glitch" data-text="BANDIT">BANDIT</span><br>WALKTHROUGH</h1>
+      <p class="terminal-line">nirusaki@arch ~ $ ./speedrun.sh --all-levels<span class="blink"></span></p>
+      <p class="hero-desc">
+        Full solutions for Bandit levels 0–33. Each entry covers the core concept, the exact commands used, and the password — blurred by default so you can try the level first.
+      </p>
+      <div class="hero-stats">
+        <div class="stat"><div class="stat-val">33</div><div class="stat-label">Levels Cleared</div></div>
+        <div class="stat"><div class="stat-val">6h</div><div class="stat-label">Speedrun Time</div></div>
+        <div class="stat"><div class="stat-val">4:50</div><div class="stat-label">Finished at AM</div></div>
+      </div>
+    </section>
+
+    <section class="content" id="levelsContainer">
+
+      <!-- Level 0 -->
+      <div class="level-card open" id="level-0">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">0</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 0 — SSH Login</div>
+            <div class="card-concept">Connecting to the remote server via SSH and reading a file</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-net">NETWORK</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">Basic SSH login. The <strong>readme</strong> file sits in the home directory. SSH uses port <strong>2220</strong> (non-standard) — note the <strong>-p</strong> flag.</div>
+          <div class="code-wrap">
+            <div class="code-topbar">
+              <div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+              <span class="code-label">bash</span>
+              <button class="copy-btn" onclick="copyCode(this)">copy</button>
+            </div>
+            <pre><code><span class="c-cmd">ssh</span> bandit0@bandit.labs.overthewire.org <span class="c-flag">-p</span> <span class="c-str">2220</span>
+<span class="c-cmd">cat</span> readme</code></pre>
+          </div>
+          <div class="pass-row">
+            <span class="pass-label">PASSWORD</span>
+            <span class="pass-val">ZjLjTmM6FvvyRnrb2rfNWOZOTa6ip5If</span>
+            <button class="reveal-btn" onclick="togglePass(this)">reveal</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Level 1 -->
+      <div class="level-card" id="level-1">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">1</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 1 — Dashed Filename</div>
+            <div class="card-concept">Reading a file named "-" without confusing the shell</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-file">FILESYSTEM</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The shell treats a bare <strong>-</strong> as stdin/stdout, not a filename. Prefix with <strong>./</strong> to force it to be treated as a path.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cat</span> <span class="c-path">./"-"</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">263JGJPfgU6LtdEvgfWU1XP5yac29mFx</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 2 -->
+      <div class="level-card" id="level-2">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">2</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 2 — Spaces in Filename</div>
+            <div class="card-concept">Handling filenames that contain spaces</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-file">FILESYSTEM</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">Wrap the filename in <strong>quotes</strong> or escape each space with a backslash. The shell splits arguments on whitespace, so spaces in filenames must be explicitly escaped.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cat</span> <span class="c-path">./"---spaces in the filename---"</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">MNk8KNH3Usiio41PRUEoDFPqfxLPlSmx</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 3 -->
+      <div class="level-card" id="level-3">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">3</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 3 — Hidden File</div>
+            <div class="card-concept">Finding files prefixed with a dot (hidden from ls by default)</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-file">FILESYSTEM</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">Files starting with <strong>.</strong> are hidden from <strong>ls</strong> by default. Use <strong>ls -a</strong> to reveal them, or glob with <strong>./*</strong> to match everything including hidden files.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cat</span> ./*
+<span class="c-comment"># or explicitly:</span>
+<span class="c-cmd">cat</span> <span class="c-path">./"...Hiding from you"</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">2WmrDFRmJIq3IPxneAaMGhap0pFhF3NJ</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 4 -->
+      <div class="level-card" id="level-4">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">4</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 4 — File Type Detection</div>
+            <div class="card-concept">Using the file command to identify human-readable content</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-file">FILESYSTEM</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box"><strong>file</strong> inspects actual file content (magic bytes), not just the extension. Filter its output for <strong>ASCII</strong> to find the human-readable file among binaries.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">file</span> ./* <span class="c-op">|</span> <span class="c-cmd">grep</span> <span class="c-str">"ASCII"</span>
+<span class="c-cmd">cat</span> <span class="c-path">./-file07</span>  <span class="c-comment"># whichever file grep returned</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">4oQYVPkxZOOEOO5pTW81FB8j8lxXGUQw</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 5 -->
+      <div class="level-card" id="level-5">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">5</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 5 — Find by Size</div>
+            <div class="card-concept">Locating a file that is exactly 1033 bytes</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-file">FILESYSTEM</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box"><strong>du -ab</strong> lists all files recursively with their sizes in bytes. Pipe to <strong>grep 1033</strong> to find the exact match. Could also use <strong>find -size 1033c</strong>.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">du</span> <span class="c-flag">-ab</span> <span class="c-op">|</span> <span class="c-cmd">grep</span> <span class="c-str">1033</span>
+<span class="c-comment"># find . -type f -size 1033c -readable ! -executable</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">HWasnPhtq9AVKe0dmk45nxy20cvUa6EG</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 6 -->
+      <div class="level-card" id="level-6">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">6</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 6 — Find by Owner + Group</div>
+            <div class="card-concept">Server-wide file search filtering by user, group, and size</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-file">FILESYSTEM</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box"><strong>find</strong> from root (<strong>/</strong>) with user/group/size filters. Redirect stderr to <strong>/dev/null</strong> to suppress the hundreds of "Permission denied" errors — otherwise the output is unreadable.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cd</span> /
+<span class="c-cmd">find</span> . <span class="c-flag">-type</span> f <span class="c-flag">-size</span> <span class="c-str">33c</span> <span class="c-flag">-user</span> bandit7 <span class="c-flag">-group</span> bandit6 <span class="c-str">2>/dev/null</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">morbNTDkSW6jIlUc0ymOdMaLnOlFVAaj</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 7 -->
+      <div class="level-card" id="level-7">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">7</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 7 — Grep</div>
+            <div class="card-concept">Finding a specific word in a large text file</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-shell">SHELL</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The password is next to the word <strong>millionth</strong> in data.txt. <strong>grep -w</strong> matches whole words only, avoiding partial matches.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">grep</span> <span class="c-flag">-w</span> <span class="c-str">"millionth"</span> data.txt</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">dfwvzFQi4mU0wfNbFOe9RoWskMLg7eEc</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 8 -->
+      <div class="level-card" id="level-8">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">8</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 8 — Unique Lines</div>
+            <div class="card-concept">Finding the one line that appears exactly once</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-shell">SHELL</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box"><strong>uniq -c</strong> counts consecutive duplicates, so <strong>sort</strong> first to group identical lines together. Then grep for count of <strong>1</strong>.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">sort</span> data.txt <span class="c-op">|</span> <span class="c-cmd">uniq</span> <span class="c-flag">-c</span> <span class="c-op">|</span> <span class="c-cmd">grep</span> <span class="c-flag">-w</span> <span class="c-str">1</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">4CKMh1JI91bUIZZPXDqGanal4xvAg0JM</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 9 -->
+      <div class="level-card" id="level-9">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">9</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 9 — Strings in Binary</div>
+            <div class="card-concept">Extracting readable text from a binary file</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-file">FILESYSTEM</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box"><strong>strings</strong> extracts printable character sequences from binary files. The password is preceded by several <strong>===</strong> signs.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">strings</span> data.txt <span class="c-op">|</span> <span class="c-cmd">grep</span> <span class="c-str">"==="</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">FGUW5ilLVJrxX9kMYMmlN4MgbpfMiqey</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 10 -->
+      <div class="level-card" id="level-10">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">10</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 10 — Base64</div>
+            <div class="card-concept">Decoding a Base64-encoded file</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-crypto">CRYPTO</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">Base64 is an encoding scheme (not encryption) that represents binary data as ASCII text. The <strong>-d</strong> flag decodes it back.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">base64</span> <span class="c-flag">-d</span> data.txt</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">dtR173fZKb0RRsDFSGsg2RWnpNVj3qRr</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 11 -->
+      <div class="level-card" id="level-11">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">11</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 11 — ROT13</div>
+            <div class="card-concept">Decoding a Caesar cipher rotated by 13 positions</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-crypto">CRYPTO</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">ROT13 maps A–M → N–Z and N–Z → A–M (and same for lowercase). Since the alphabet has 26 letters, applying ROT13 twice gives back the original. <strong>tr</strong> handles character translation.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cat</span> data.txt <span class="c-op">|</span> <span class="c-cmd">tr</span> <span class="c-str">'A-Za-z'</span> <span class="c-str">'N-ZA-Mn-za-m'</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">7x16WNeHIi5YkIhWsfFIqoognUTyj9Q4</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 12 -->
+      <div class="level-card" id="level-12">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">12</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 12 — Compression Hell</div>
+            <div class="card-concept">Reversing a hexdump, then peeling many layers of compression</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-file">FILESYSTEM</span><span class="badge badge-crypto">CRYPTO</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The file is a hexdump of data compressed multiple times (gzip, bzip2, tar). Strategy: reverse the hexdump with <strong>xxd -r</strong>, then repeatedly run <strong>file</strong> to identify the format and decompress accordingly until you hit ASCII text.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">mkdir</span> /tmp/work <span class="c-op">&&</span> <span class="c-cmd">cd</span> /tmp/work
+<span class="c-cmd">cp</span> ~/data.txt .
+<span class="c-cmd">xxd</span> <span class="c-flag">-r</span> data.txt <span class="c-op">></span> output.bin   <span class="c-comment"># hexdump → binary</span>
+<span class="c-cmd">file</span> output.bin                <span class="c-comment"># → gzip</span>
+<span class="c-cmd">mv</span> output.bin output.gz <span class="c-op">&&</span> <span class="c-cmd">gzip</span> <span class="c-flag">-d</span> output.gz
+<span class="c-cmd">file</span> output                    <span class="c-comment"># → bzip2</span>
+<span class="c-cmd">bzip2</span> <span class="c-flag">-d</span> output
+<span class="c-cmd">file</span> output.out               <span class="c-comment"># → gzip</span>
+<span class="c-cmd">mv</span> output.out data4.gz <span class="c-op">&&</span> <span class="c-cmd">gzip</span> <span class="c-flag">-d</span> data4.gz
+<span class="c-cmd">file</span> data4                    <span class="c-comment"># → tar</span>
+<span class="c-cmd">mv</span> data4 data4.tar <span class="c-op">&&</span> <span class="c-cmd">tar</span> <span class="c-flag">-xvf</span> data4.tar
+<span class="c-cmd">file</span> data5.bin                <span class="c-comment"># → tar</span>
+<span class="c-cmd">tar</span> <span class="c-flag">-xvf</span> data5.bin
+<span class="c-cmd">file</span> data6.bin                <span class="c-comment"># → bzip2</span>
+<span class="c-cmd">bzip2</span> <span class="c-flag">-d</span> data6.bin
+<span class="c-cmd">file</span> data6.bin.out            <span class="c-comment"># → tar</span>
+<span class="c-cmd">tar</span> <span class="c-flag">-xvf</span> data6.bin.out
+<span class="c-cmd">file</span> data8.bin                <span class="c-comment"># → gzip</span>
+<span class="c-cmd">mv</span> data8.bin data9.gz <span class="c-op">&&</span> <span class="c-cmd">gzip</span> <span class="c-flag">-d</span> data9.gz
+<span class="c-cmd">file</span> data9                    <span class="c-comment"># → ASCII text, done</span>
+<span class="c-cmd">cat</span> data9</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">FO5dwFsc0cbaIiH0h8J2eUks2vdTDwAn</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 13 -->
+      <div class="level-card" id="level-13">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">13</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 13 — SSH Private Key</div>
+            <div class="card-concept">Using an SSH private key instead of a password to log in</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-net">NETWORK</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">No password is given — instead you get <strong>sshkey.private</strong>. Copy it to your local machine, set permissions to <strong>600</strong> (SSH refuses world-readable keys), then use <strong>-i</strong> to authenticate with it.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-comment"># On bandit13 — copy the key contents to your clipboard</span>
+<span class="c-cmd">cat</span> sshkey.private
+
+<span class="c-comment"># On your local machine</span>
+<span class="c-cmd">nano</span> sshkey.private          <span class="c-comment"># paste key, save</span>
+<span class="c-cmd">chmod</span> <span class="c-str">600</span> sshkey.private
+<span class="c-cmd">ssh</span> <span class="c-flag">-i</span> sshkey.private bandit14@bandit.labs.overthewire.org <span class="c-flag">-p</span> <span class="c-str">2220</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Level 14 -->
+      <div class="level-card" id="level-14">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">14</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 14 — Netcat Port Submit</div>
+            <div class="card-concept">Submitting the current password to a local port via netcat</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-net">NETWORK</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The service on port <strong>30000</strong> validates the current level's password and returns the next. <strong>nc</strong> (netcat) is a raw TCP/UDP tool — the "Swiss Army knife of networking".</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cat</span> /etc/bandit_pass/bandit14   <span class="c-comment"># get current password</span>
+<span class="c-cmd">nc</span> localhost <span class="c-str">30000</span>
+<span class="c-comment"># paste: MU4VWeTyJk8ROof1qqmcBPaLh7lDCPvS</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">8xCjnmgoKbGLhHFAZlGE5Tmu4M2tKJQo</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 15 -->
+      <div class="level-card" id="level-15">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">15</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 15 — OpenSSL TLS</div>
+            <div class="card-concept">Submitting a password over an SSL/TLS-encrypted connection</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-net">NETWORK</span><span class="badge badge-crypto">CRYPTO</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">Port <strong>30001</strong> uses SSL/TLS, so plain <strong>nc</strong> won't work. <strong>openssl s_client</strong> handles the TLS handshake and then lets you interact with the service normally.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">openssl</span> s_client <span class="c-flag">-connect</span> localhost:<span class="c-str">30001</span>
+<span class="c-comment"># paste: 8xCjnmgoKbGLhHFAZlGE5Tmu4M2tKJQo</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">kSkvUpMQ7lBYyCM4GBPvCvT1BfWRy0Dx</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 16 -->
+      <div class="level-card" id="level-16">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">16</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 16 — Port Scanning + SSL</div>
+            <div class="card-concept">Finding the right SSL port among 31000–32000 via brute scan</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-net">NETWORK</span><span class="badge badge-crypto">CRYPTO</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">Scan the port range to find which ones are open, then try submitting the password via SSL to each until one returns an SSH private key (port <strong>31790</strong> is the target). Use that key to log in as bandit17.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-comment"># Scan open ports</span>
+<span class="c-cmd">for</span> port in {31000..32000}; <span class="c-cmd">do</span> nc <span class="c-flag">-z</span> localhost $port; <span class="c-cmd">done</span>
+
+<span class="c-comment"># Submit password to SSL port</span>
+<span class="c-cmd">echo</span> <span class="c-str">"kSkvUpMQ7lBYyCM4GBPvCvT1BfWRy0Dx"</span> <span class="c-op">|</span> <span class="c-cmd">openssl</span> s_client <span class="c-flag">-connect</span> localhost:<span class="c-str">31790</span> <span class="c-flag">-quiet</span>
+<span class="c-comment"># Returns an SSH private key — save it as key17</span>
+
+<span class="c-cmd">chmod</span> <span class="c-str">600</span> key17
+<span class="c-cmd">ssh</span> <span class="c-flag">-i</span> key17 bandit17@bandit.labs.overthewire.org <span class="c-flag">-p</span> <span class="c-str">2220</span>
+<span class="c-cmd">cat</span> /etc/bandit_pass/bandit17</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">EReVavePLFHtFlFsjn3hyzMlvSuSAcRD</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 17 -->
+      <div class="level-card" id="level-17">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">17</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 17 — Diff Files</div>
+            <div class="card-concept">Finding the changed line between two password files</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-shell">SHELL</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box"><strong>diff</strong> shows lines that differ between two files. Lines prefixed with <strong>&lt;</strong> are in file1 only, <strong>&gt;</strong> are in file2 only. The changed line in <strong>passwords.new</strong> is the password.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">diff</span> passwords.new passwords.old <span class="c-op">|</span> <span class="c-cmd">grep</span> <span class="c-str">">"</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">x2gLTTjFwMOhQ8oWNbMN362QKxfRqGlO</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 18 -->
+      <div class="level-card" id="level-18">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">18</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 18 — .bashrc Trap</div>
+            <div class="card-concept">Bypassing a modified .bashrc that kills interactive sessions</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-shell">SHELL</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box"><strong>.bashrc</strong> has been modified to immediately log you out on interactive login. You can bypass this by passing a command directly to SSH — it executes before the shell starts and returns the output without opening an interactive session.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">echo</span> <span class="c-str">"cat readme"</span> <span class="c-op">|</span> <span class="c-cmd">ssh</span> bandit18@bandit.labs.overthewire.org <span class="c-flag">-p</span> <span class="c-str">2220</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">cGWpMaKXVwDUNgPAVJbWYuGHVn9zl3j8</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 19 -->
+      <div class="level-card" id="level-19">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">19</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 19 — Setuid Binary</div>
+            <div class="card-concept">Using a setuid binary to execute commands as another user</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-shell">SHELL</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The <strong>setuid</strong> bit on an executable causes it to run as the file owner (bandit20) rather than the calling user. This is exactly how tools like <strong>sudo</strong> work internally.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">./bandit20-do</span> cat /etc/bandit_pass/bandit20</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 20 -->
+      <div class="level-card" id="level-20">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">20</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 20 — tmux + Netcat Listener</div>
+            <div class="card-concept">Running two processes simultaneously — a listener and a client</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-net">NETWORK</span><span class="badge badge-shell">SHELL</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The binary <strong>suconnect</strong> connects back to a port you're listening on, checks the password you send, and returns the next one. You need two concurrent terminal sessions — use <strong>tmux</strong> to manage them.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-comment"># Window 1 — start nc listener</span>
+<span class="c-cmd">tmux</span>
+<span class="c-cmd">nc</span> <span class="c-flag">-l</span> <span class="c-flag">-p</span> <span class="c-str">1234</span>
+<span class="c-comment"># Ctrl+B, D to detach</span>
+
+<span class="c-comment"># Window 2 — run suconnect</span>
+<span class="c-cmd">tmux</span> new-window
+<span class="c-cmd">./suconnect</span> <span class="c-str">1234</span>
+<span class="c-comment"># Ctrl+B, D to detach</span>
+
+<span class="c-comment"># Reattach to window 1 and paste the bandit20 password</span>
+<span class="c-cmd">tmux</span> attach <span class="c-flag">-t</span> 0
+<span class="c-comment"># paste: 0qXahG8ZjOVMN9Ghs7iOWsCfZyXOUbYO</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">EeoULMCra2q0dSkYj561DX7s1CpBuOBt</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 21 -->
+      <div class="level-card" id="level-21">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">21</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 21 — Cron Job</div>
+            <div class="card-concept">Finding a password written to /tmp by a cron job</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-cron">CRON</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">A cron script runs as <strong>bandit22</strong> and writes its password to a temp file. Read the cron config to find which script, then read the script to find the output path.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cat</span> /etc/cron.d/* <span class="c-str">2>/dev/null</span> <span class="c-op">|</span> <span class="c-cmd">grep</span> <span class="c-str">"bandit22"</span>
+<span class="c-cmd">cat</span> /usr/bin/cronjob_bandit22.sh
+<span class="c-cmd">cat</span> <span class="c-path">/tmp/t7O6lds9S0RqQh9aMcz6ShpAoZKF7fgv</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">tRae0UfB9v0UzbCdn9cY0gQnds9GF58Q</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 22 -->
+      <div class="level-card" id="level-22">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">22</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 22 — Cron + MD5 Hash</div>
+            <div class="card-concept">Reproducing an MD5-derived filename to find the password file</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-cron">CRON</span><span class="badge badge-crypto">CRYPTO</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The cron script generates its temp filename by hashing the string <strong>"I am user bandit23"</strong> with MD5. Read the script to understand this, reproduce the hash, and read that file.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cat</span> /usr/bin/cronjob_bandit23.sh   <span class="c-comment"># understand the script</span>
+
+<span class="c-comment"># Reproduce the filename</span>
+<span class="c-cmd">echo</span> <span class="c-str">"I am user bandit23"</span> <span class="c-op">|</span> <span class="c-cmd">md5sum</span> <span class="c-op">|</span> <span class="c-cmd">cut</span> <span class="c-flag">-d</span> <span class="c-str">' '</span> <span class="c-flag">-f</span> <span class="c-str">1</span>
+<span class="c-comment"># → 8ca319486bfbbc3663ea0fbe81326349</span>
+
+<span class="c-cmd">cat</span> <span class="c-path">/tmp/8ca319486bfbbc3663ea0fbe81326349</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">0Zf11ioIjMVN551jX3CmStKLYqjk54Ga</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 23 -->
+      <div class="level-card" id="level-23">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">23</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 23 — Cron Script Injection</div>
+            <div class="card-concept">Dropping a payload script into a cron-watched directory</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-cron">CRON</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The cron job for bandit24 executes then <strong>deletes</strong> every script placed in <strong>/var/spool/bandit24/foo/</strong>. Place a shell script there that writes bandit24's password to a world-readable /tmp file, then wait ~60 seconds.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cat</span> /usr/bin/cronjob_bandit24.sh    <span class="c-comment"># understand the mechanism</span>
+
+<span class="c-comment"># Drop payload</span>
+<span class="c-cmd">echo</span> <span class="c-str">"cat /etc/bandit_pass/bandit24 > /tmp/dekhoyepass.txt"</span> <span class="c-op">></span> <span class="c-path">/var/spool/bandit24/foo/hello.sh</span>
+<span class="c-cmd">chmod</span> <span class="c-str">+x</span> /var/spool/bandit24/foo/hello.sh
+
+<span class="c-comment"># Wait ~60 seconds, then:</span>
+<span class="c-cmd">cat</span> <span class="c-path">/tmp/dekhoyepass.txt</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 24 -->
+      <div class="level-card" id="level-24">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">24</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 24 — Brute Force PIN</div>
+            <div class="card-concept">Generating all 10,000 PINs and piping them to the service</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-net">NETWORK</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">Port <strong>30002</strong> expects the password + a 4-digit PIN. Generate all 10,000 combinations with a loop and pipe them all at once to <strong>nc</strong> — it will return the password when it hits the correct PIN.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">for</span> i in {0..9999}; <span class="c-cmd">do</span>
+  <span class="c-cmd">echo</span> <span class="c-str">"gb8KRRCsshuZXI0tUuR6ypOFjiZbf3G8 $i"</span>
+<span class="c-cmd">done</span> <span class="c-op">|</span> <span class="c-cmd">nc</span> localhost <span class="c-str">30002</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">iCi86ttT4KSNe1armKiwbQNmB3YJP3q4</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 25 -->
+      <div class="level-card" id="level-25">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">25</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 25 — SSH Key for Level 26</div>
+            <div class="card-concept">Logging into bandit26 whose shell is not /bin/bash</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-net">NETWORK</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">You get an SSH key for bandit26. The catch: bandit26's login shell is <strong>more</strong> (a pager), not bash. Logging in directly will immediately close the session. This sets up the next level's puzzle.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">ssh</span> <span class="c-flag">-i</span> bandit26.sshkey bandit26@bandit.labs.overthewire.org <span class="c-flag">-p</span> <span class="c-str">2220</span>
+<span class="c-comment"># Session closes immediately — shell is 'more', not bash</span>
+<span class="c-comment"># Check: cat /etc/passwd | grep bandit26</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">BANDIT26 PASSWORD</span><span class="pass-val">s0773xxkk0MXfdqOfPRVr9L3jJBUOgCZ</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 26 -->
+      <div class="level-card" id="level-26">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">26</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 26 — Vim Shell Escape</div>
+            <div class="card-concept">Exploiting the 'more' pager to escape into vim then a real shell</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-shell">SHELL</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">bandit26's shell is <strong>more</strong>. If your terminal is tall enough, <strong>more</strong> exits immediately. Resize it to ~5 lines so <strong>more</strong> pauses. Then press <strong>v</strong> to open vim, set a real shell, and spawn it. Classic CTF shell escape.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash + vim</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-comment"># 1. Resize terminal to ~5 lines tall</span>
+<span class="c-comment"># 2. SSH in — 'more' will pause instead of exiting</span>
+<span class="c-cmd">ssh</span> <span class="c-flag">-i</span> bandit26.sshkey bandit26@bandit.labs.overthewire.org <span class="c-flag">-p</span> <span class="c-str">2220</span>
+
+<span class="c-comment"># Inside 'more' — press v to open vim</span>
+v
+
+<span class="c-comment"># Inside vim:</span>
+:set shell=<span class="c-path">/bin/bash</span>
+:shell                           <span class="c-comment"># spawns bash as bandit26</span>
+
+<span class="c-comment"># Now in bash — run the setuid binary for bandit27</span>
+<span class="c-cmd">./bandit27-do</span> cat /etc/bandit_pass/bandit27</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD (bandit27)</span><span class="pass-val">upsNCc7vzaRDx6oZC6GiR6ERwe1MowGB</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 27 -->
+      <div class="level-card" id="level-27">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">27</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 27 — Git Clone</div>
+            <div class="card-concept">Cloning a git repo over SSH and reading the README</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-git">GIT</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The repo is hosted at a custom SSH URL on port 2220. Clone it to /tmp (since home may be read-only) and read the README for the password.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">git</span> clone ssh://bandit27-git@bandit.labs.overthewire.org:<span class="c-str">2220</span>/home/bandit27-git/repo
+<span class="c-cmd">cd</span> repo
+<span class="c-cmd">cat</span> README</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">Yz9IpL0sBcCeuG7m9uQFt8ZNpS4HZRcN</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 28 -->
+      <div class="level-card" id="level-28">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">28</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 28 — Git Log History</div>
+            <div class="card-concept">Recovering a password redacted in a later commit</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-git">GIT</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The README was edited to redact the password. But git keeps all history — the original commit with the real password is still there. <strong>git log</strong> shows all commits, <strong>git show</strong> reveals their content.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">git</span> clone ssh://bandit28-git@bandit.labs.overthewire.org:<span class="c-str">2220</span>/home/bandit28-git/repo
+<span class="c-cmd">cd</span> repo
+<span class="c-cmd">git</span> log <span class="c-flag">--oneline</span>
+<span class="c-cmd">git</span> show &lt;commit-hash-before-redaction&gt;</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">4pT1t5DENaYuqnqvadYs1oE4QLCdjmJ7</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 29 -->
+      <div class="level-card" id="level-29">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">29</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 29 — Git Branches</div>
+            <div class="card-concept">Finding the password on a non-default branch</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-git">GIT</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">master says "no passwords in production". The <strong>dev</strong> branch has the real data. Clone with <strong>-b dev</strong> to target it directly.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">git</span> clone <span class="c-flag">-b</span> dev <span class="c-flag">--single-branch</span> ssh://bandit29-git@bandit.labs.overthewire.org:<span class="c-str">2220</span>/home/bandit29-git/repo
+<span class="c-cmd">cd</span> repo
+<span class="c-cmd">cat</span> README.md</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">qp30ex3VLz5MDG1n91YowTv4Q8l7CDZL</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 30 -->
+      <div class="level-card" id="level-30">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">30</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 30 — Git Tags</div>
+            <div class="card-concept">Recovering data stored in a git tag rather than a commit</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-git">GIT</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">No useful commits or branches. The password is stored as a <strong>git tag</strong> — lightweight pointers to specific objects. <strong>git tag</strong> lists them, <strong>git show &lt;tag&gt;</strong> reveals the content.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">git</span> clone ssh://bandit30-git@bandit.labs.overthewire.org:<span class="c-str">2220</span>/home/bandit30-git/repo
+<span class="c-cmd">cd</span> repo
+<span class="c-cmd">git</span> tag
+<span class="c-cmd">git</span> show secret</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">fb5S2xb7bRyFmAvQYQGEqsbhVyJqhnDy</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 31 -->
+      <div class="level-card" id="level-31">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">31</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 31 — Git Push</div>
+            <div class="card-concept">Pushing a specific file to a remote repo (bypassing .gitignore)</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-git">GIT</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">The task: push a file named <strong>key.txt</strong> with the content "May I come in?". The <strong>.gitignore</strong> blocks <strong>*.txt</strong> — clear it first so git will track the file.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">git</span> clone ssh://bandit31-git@bandit.labs.overthewire.org:<span class="c-str">2220</span>/home/bandit31-git/repo
+<span class="c-cmd">cd</span> repo
+<span class="c-cmd">echo</span> <span class="c-str">'May I come in?'</span> <span class="c-op">></span> key.txt
+<span class="c-cmd">rm</span> .gitignore <span class="c-op">&&</span> <span class="c-cmd">touch</span> .gitignore   <span class="c-comment"># clear gitignore</span>
+<span class="c-cmd">git</span> add .
+<span class="c-cmd">git</span> commit <span class="c-flag">-m</span> <span class="c-str">"add: key.txt"</span>
+<span class="c-cmd">git</span> push                          <span class="c-comment"># server responds with password</span></code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">3O9RfhqyAlVBEZpVb6LYStshZoqoSx5K</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 32 -->
+      <div class="level-card" id="level-32">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">32</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 32 — Uppercase Shell Escape</div>
+            <div class="card-concept">Exploiting $0 to escape a shell that uppercases all input</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-shell">SHELL</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">Every command you type gets converted to uppercase, making all lowercase shell commands useless. <strong>$0</strong> is a special variable that expands to the name of the current shell — it's not subject to the uppercasing transform and effectively re-invokes <strong>/bin/sh</strong>.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-comment"># In the UPPERCASE shell:</span>
+$0                               <span class="c-comment"># expands to /bin/sh, spawns real shell</span>
+<span class="c-cmd">cat</span> /etc/bandit_pass/bandit33</code></pre>
+          </div>
+          <div class="pass-row"><span class="pass-label">PASSWORD</span><span class="pass-val">tQdtbs5D5i2vJwkO8mEyYEyTL8izoeJ0</span><button class="reveal-btn" onclick="togglePass(this)">reveal</button></div>
+        </div>
+      </div>
+
+      <!-- Level 33 -->
+      <div class="level-card" id="level-33">
+        <div class="card-header" onclick="toggleCard(this)">
+          <div class="level-num">33</div>
+          <div class="card-title-wrap">
+            <div class="card-title">Bandit 33 — GG</div>
+            <div class="card-concept">The final level — you've completed the wargame</div>
+          </div>
+          <div class="card-badges"><span class="badge badge-shell">DONE</span></div>
+          <div class="chevron">▼</div>
+        </div>
+        <div class="card-body">
+          <div class="concept-box">No more challenges. The README says: <strong>"At this moment, level 34 does not exist yet."</strong> You finished Bandit. Time to move on to Natas or Leviathan — or jump straight to HTB/THM for hands-on box pwning.</div>
+          <div class="code-wrap">
+            <div class="code-topbar"><div class="code-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div><span class="code-label">bash</span><button class="copy-btn" onclick="copyCode(this)">copy</button></div>
+            <pre><code><span class="c-cmd">cat</span> README.txt
+<span class="c-comment"># "At this moment, level 34 does not exist yet."</span>
+<span class="c-comment"># Congratulations. You've completed Bandit.</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <footer class="footer">
+      <span>nirusaki · Bandit Speedrun · 6 hours</span>
+      <span><a href="https://overthewire.org/wargames/bandit/" target="_blank">overthewire.org/wargames/bandit</a></span>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+  // ── Card toggle ──
+  function toggleCard(header) {
+    const card = header.closest('.level-card');
+    card.classList.toggle('open');
+  }
+
+  // ── Password reveal ──
+  function togglePass(btn) {
+    const val = btn.previousElementSibling;
+    const revealed = val.classList.toggle('revealed');
+    btn.textContent = revealed ? 'hide' : 'reveal';
+  }
+
+  // ── Copy code ──
+  function copyCode(btn) {
+    const pre = btn.closest('.code-wrap').querySelector('pre');
+    const text = pre.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'copied!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'copy';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  // ── Hamburger ──
+  const hamburger = document.getElementById('hamburger');
+  const sidebar   = document.getElementById('sidebar');
+  const overlay   = document.getElementById('overlay');
+
+  hamburger.addEventListener('click', () => {
+    const open = sidebar.classList.toggle('open');
+    hamburger.classList.toggle('open', open);
+    overlay.classList.toggle('show', open);
+  });
+
+  overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    hamburger.classList.remove('open');
+    overlay.classList.remove('show');
+  });
+
+  // Close sidebar on nav click (mobile)
+  document.querySelectorAll('.nav-item a').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 900) {
+        sidebar.classList.remove('open');
+        hamburger.classList.remove('open');
+        overlay.classList.remove('show');
+      }
+    });
+  });
+
+  // ── Search ──
+  const searchInput = document.getElementById('searchInput');
+  const navItems    = document.querySelectorAll('.nav-item');
+  const levelCards  = document.querySelectorAll('.level-card');
+
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase();
+    navItems.forEach(item => {
+      const text = item.textContent.toLowerCase();
+      item.style.display = text.includes(q) ? '' : 'none';
+    });
+    levelCards.forEach(card => {
+      const text = card.textContent.toLowerCase();
+      card.style.display = text.includes(q) ? '' : 'none';
+    });
+  });
+
+  // ── Active nav on scroll ──
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const id = entry.target.id;
+        navItems.forEach(item => {
+          const link = item.querySelector('a');
+          const active = link.getAttribute('href') === `#${id}`;
+          link.classList.toggle('active', active);
+        });
+      }
+    });
+  }, { threshold: 0.3, rootMargin: '-10% 0px -60% 0px' });
+
+  levelCards.forEach(card => observer.observe(card));
+</script>
+</body>
+</html>
